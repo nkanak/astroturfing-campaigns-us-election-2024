@@ -14,11 +14,9 @@ import copy
 import logging
 import re
 import random
-import jgrapht
+import networkx as nx
 
 import models
-from dataset import FakeNewsDataset
-from trees import tree_to_dict
 import json
 from datetime import datetime 
 
@@ -163,28 +161,29 @@ def create_tree(tweet_dict, min_retweets):
         tweet.retweeted_by, key=lambda t: t.created_at, reverse=True
     )
 
-    tree = jgrapht.create_graph(directed=True, any_hashable=True)
-    tree.add_vertex(vertex=tweet)
-    tree.vertex_attrs[tweet]['delay'] = 0
+    tree = nx.DiGraph()
+    tree.add_node(tweet)
+
+    tree.nodes[tweet]["delay"] = 0
 
     previous = []
     previous.append(tweet)
 
     while len(retweets) != 0: 
         cur = retweets.pop()
-        tree.add_vertex(vertex=cur)
+        tree.add_node(cur)
 
         cur_retweet_of = _find_retweet_source(cur, previous)
         tree.add_edge(cur, cur_retweet_of)
 
-        tree.vertex_attrs[cur]['delay'] = abs((cur.created_at-cur_retweet_of.created_at).total_seconds())
+        tree.nodes[cur]['delay'] = abs((cur.created_at-cur_retweet_of.created_at).total_seconds())
 
         previous.append(cur)
 
     if tweet.real: 
-        tree.graph_attrs['label'] = "real"
+        tree.graph['label'] = "real"
     else:
-        tree.graph_attrs['label'] = "fake"
+        tree.graph['label'] = "fake"
 
     return tree
 
@@ -192,36 +191,56 @@ def create_tree(tweet_dict, min_retweets):
 def postprocess_tree(tree):
     """Given a tree convert vertices to integers and compute features.
     """
-    p_tree = jgrapht.create_graph(directed=True, any_hashable=True)
+    p_tree = nx.DiGraph()
 
     vid = 0
     tweet_to_id = {}
-    for tweet in tree.vertices:
-        p_tree.add_vertex(vertex=vid)
+    for tweet in tree.nodes(data=True):
+        p_tree.add_node(vid)
 
-        p_tree.vertex_attrs[vid]['user_id'] = tweet.user.id
-        p_tree.vertex_attrs[vid]['delay'] = tree.vertex_attrs[tweet]['delay']
-        p_tree.vertex_attrs[vid]['followers_count'] = max(len(tweet.user.followers), tweet.user.followers_count)
-        p_tree.vertex_attrs[vid]['following_count'] =  max(len(tweet.user.following), tweet.user.following_count)
+        p_tree.nodes[vid]['user_id'] = tweet[0].user.id
+        p_tree.nodes[vid]['delay'] = tree.nodes[tweet[0]]['delay']
+        p_tree.nodes[vid]['followers_count'] = max(len(tweet[0].user.followers), tweet[0].user.followers_count)
+        p_tree.nodes[vid]['following_count'] =  max(len(tweet[0].user.following), tweet[0].user.following_count)
 
         for key in ['verified', 'protected', 'favourites_count', 'listed_count', 'statuses_count']:
-            p_tree.vertex_attrs[vid][key] = int(getattr(tweet.user, key))
+            p_tree.nodes[vid][key] = int(getattr(tweet[0].user, key))
 
         #if tweet.user.embedding is not None:
         #    p_tree.vertex_attrs[vid]['user_profile_embedding'] = tweet.user.embedding
 
-        tweet_to_id[tweet] = vid
+        tweet_to_id[tweet[0]] = vid
         vid += 1
-        
-    for e in tree.edges:
-        u = tree.edge_source(e)
-        v = tree.edge_target(e)
 
-        p_tree.add_edge(tweet_to_id[u], tweet_to_id[v])
+    for source, target in tree.edges:
+        p_tree.add_edge(tweet_to_id[source], tweet_to_id[target])
 
-    p_tree.graph_attrs['label'] = tree.graph_attrs['label']
+    p_tree.graph['label'] = tree.graph['label']
 
     return p_tree
+
+
+def tree_to_dict(tree):
+    out = {}
+    out['label'] = tree.graph['label']
+
+    nodes = []
+    for v in tree.nodes(data=True):
+        node = {}
+        node['id'] = v[0]
+        for k, v in tree.nodes[v[0]].items():
+            node[k] = v
+        nodes.append(node)
+    edges = []
+    for source, target in tree.edges:
+        edge = {}
+        edge['source'] = source
+        edge['target'] = target
+        edges.append(edge)
+    out['nodes'] = nodes
+    out['edges'] = edges
+
+    return out
 
 
 def run(args):
@@ -238,7 +257,9 @@ def run(args):
         tweet_path = fentry.path
         with open(tweet_path) as json_file:
             tweet_dict = json.load(json_file)
-            tree = create_tree(tweet_dict, min_retweets=8)
+            # FIXME: min_retweets should be a hyperparameter.
+            tree = create_tree(tweet_dict, min_retweets=1)
+            #tree = create_tree(tweet_dict, min_retweets=8)
             if tree is not None:
                 if count % 25 == 0: 
                     logging.info("{}".format(count))
