@@ -10,7 +10,7 @@ import utils
 
 import logging
 
-import jgrapht
+import networkx as nx
 import pandas as pd
 from tqdm import tqdm
 
@@ -53,8 +53,8 @@ def build_graphs():
     with open(os.path.join(args.dataset_root, "train_user_ids.json")) as f:
         train_user_ids = json.load(f)["user_ids"]
     train_graph = build_initial_graph(train_user_ids)
-    logging.info("Created train graph with {} vertices".format(train_graph.number_of_vertices))
-    logging.info("Created train graph with {} edges".format(train_graph.number_of_edges))
+    logging.info("Created train graph with {} vertices".format(len(train_graph.nodes)))
+    logging.info("Created train graph with {} edges".format(len(train_graph.edges)))
 
     logging.info("Create train edges df")
     edges_df = edges_to_df(train_graph)
@@ -68,29 +68,11 @@ def build_graphs():
     utils.write_object_to_pickle_file(os.path.join(args.dataset_root, "train_vertices.pkl"), vertices_df)
     del vertices_df
 
-    with open(os.path.join(args.dataset_root, "val_user_ids.json")) as f:
-        val_user_ids = json.load(f)["user_ids"]
-    val_graph = build_initial_graph(val_user_ids)
-    logging.info("Created val graph with {} vertices".format(val_graph.number_of_vertices))
-    logging.info("Created val graph with {} edges".format(val_graph.number_of_edges))
-
-    logging.info("Create edges df")
-    edges_df = edges_to_df(val_graph)
-    logging.info("Writing val edges to pickle file")
-    utils.write_object_to_pickle_file(os.path.join(args.dataset_root, "val_edges.pkl"), edges_df)
-    del edges_df
-    logging.info("Create val vertices df")
-    vertices_df = vertices_to_df(val_graph)
-    del val_graph
-    logging.info("Writing val vertices to pickle file")
-    utils.write_object_to_pickle_file(os.path.join(args.dataset_root, "val_vertices.pkl"), vertices_df)
-    del vertices_df
-
     with open(os.path.join(args.dataset_root, "test_user_ids.json")) as f:
         test_user_ids = json.load(f)["user_ids"]
     test_graph = build_initial_graph(test_user_ids)
-    logging.info("Created test graph with {} vertices".format(test_graph.number_of_vertices))
-    logging.info("Created test graph with {} edges".format(test_graph.number_of_edges))
+    logging.info("Created test graph with {} vertices".format(len(test_graph.nodes)))
+    logging.info("Created test graph with {} edges".format(len(test_graph.edges)))
 
     logging.info("Create test edges df")
     edges_df = edges_to_df(test_graph)
@@ -116,12 +98,7 @@ def build_initial_graph(node_ids):
     user_profiles_path = "{}/user_profiles".format(args.input_dir)
     user_followers_path = "{}/user_followers".format(args.input_dir)
 
-    g = jgrapht.create_graph(
-        directed=True,
-        allowing_self_loops=True,
-        allowing_multiple_edges=True,
-        any_hashable=True,
-    )
+    g = nx.MultiDiGraph()
 
     length = len(list(os.scandir(user_profiles_path)))
     pbar = tqdm(os.scandir(user_profiles_path), total=length)
@@ -129,13 +106,16 @@ def build_initial_graph(node_ids):
         pbar.set_description('File:%s'%(fentry.path))
         if fentry.path.endswith(".json") and fentry.is_file():
             with open(fentry.path) as json_file:
-                user_profile = json.load(json_file)
-                user = strip_user_profile(user_profile, embedder)
-                if not str(user["id"]) in node_ids:
+                # Extract the user id from the filename.
+                user_id = str(fentry.path).split('.')[-2].split('/')[-1]
+                if not user_id in node_ids:
                     continue
 
-                v = g.add_vertex(user["id"])
-                g.vertex_attrs[v].update(**user)
+                user_profile = json.load(json_file)
+                user = strip_user_profile(user_profile, embedder)
+
+                g.add_node(user["id"])
+                g.nodes[user["id"]].update(**user)
 
     length = len(list(os.scandir(user_followers_path)))
     pbar = tqdm(os.scandir(user_followers_path), total=length)
@@ -143,28 +123,24 @@ def build_initial_graph(node_ids):
         pbar.set_description('File: %s'%(fentry.path))
         if fentry.path.endswith(".json") and fentry.is_file():
             with open(fentry.path) as json_file:
-                user_followers = json.load(json_file)
+                try:
+                    user_followers = json.load(json_file)
+                except json.JSONDecodeError:
+                    logging.warning(f'Error while trying to load {fentry.path}')
+                    continue
 
                 if not str(user_followers["user_id"]) in node_ids:
                     continue
 
-                if g.contains_vertex(user_followers["user_id"]) is False:
+                if g.has_node(user_followers["user_id"]) is False:
                     continue
-                    user_profile = {"id": user_followers["user_id"], "description": ""}
-                    user = strip_user_profile(user_profile, embedder)
-                    v = g.add_vertex(user["id"])
-                    g.vertex_attrs[v].update(**user)
 
                 for follower in user_followers["followers"]:
                     if not str(follower) in node_ids:
                         continue
 
-                    if g.contains_vertex(follower) is False:
+                    if g.has_node(follower) is False:
                         continue
-                        user_profile = {"id": follower, "description": ""}
-                        user = strip_user_profile(user_profile, embedder)
-                        v = g.add_vertex(user["id"])
-                        g.vertex_attrs[v].update(**user)
 
                     g.add_edge(follower, user_followers["user_id"])
 
@@ -174,11 +150,9 @@ def edges_to_df(g):
     sources = []
     targets = []
 
-    for e in g.edges:
-        u = g.edge_source(e)
-        v = g.edge_target(e)
-        sources.append(u)
-        targets.append(v)
+    for source, target, _ in g.edges:
+        sources.append(source)
+        targets.append(target)
 
     return pd.DataFrame({"source": sources, "target": targets})
 
@@ -187,20 +161,19 @@ def vertices_to_df(g):
     data = {}
 
     vertices = []
-    for v in g.vertices:
+    for v in g.nodes:
         vertices.append(v)
 
-    features = list(g.vertex_attrs[v].keys())
+    features = list(g.nodes[v].keys())
     for f in features:
         values = []
-        for v in g.vertices:
-            v = g.vertex_attrs[v][f]
+        for v in g.nodes:
+            v = g.nodes[v][f]
             values.append(v)
 
         data[f] = values
 
     return pd.DataFrame(data, index=vertices)
-
 
 
 def run(args):
