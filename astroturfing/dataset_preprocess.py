@@ -12,8 +12,6 @@ import utils
 import random
 import copy
 
-from dataset import FakeNewsDataset
-from trees import create_trees, tree_to_dict
 import json
 
 
@@ -23,13 +21,10 @@ def run(args):
 
     logging.info("Loading dataset")
 
-    user_profiles_path = "../raw_data/user_profiles"
-    user_followers_path = "../raw_data/user_followers"
-    user_embeddings_path = "../raw_data/user_embeddings"
     real_news_retweets_path = "../raw_data/{}/real".format(args.website)
     fake_news_retweets_path = "../raw_data/{}/fake".format(args.website)
     
-    output_path = "tweets1"
+    output_path = "tweets"
     os.makedirs(output_path, exist_ok=True)
 
     paths = { "fake": fake_news_retweets_path, "real": real_news_retweets_path }
@@ -86,17 +81,17 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--sample-probability",
-        help="Sample probability",
+        help="Sample probability. A sample probablity of 0 means include all the tweets.",
         dest="sample_probability",
         type=float,
         default=None,
     )
-    parser.add_argument(
-        "--ignore-dataset-pkl",
-        help="Ignore the already produced pkl file of the dataset",
-        dest="ignore_pkl",
-        action='store_true'
-    )
+    # parser.add_argument(
+    #     "--ignore-dataset-pkl",
+    #     help="Ignore the already produced pkl file of the dataset",
+    #     dest="ignore_pkl",
+    #     action='store_true'
+    # )
 
     args = parser.parse_args()
     run(args)
