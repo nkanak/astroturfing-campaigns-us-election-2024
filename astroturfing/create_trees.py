@@ -23,7 +23,6 @@ from datetime import datetime
 USER_PROFILES_PATH = "../raw_data/user_profiles"
 USER_FOLLOWERS_PATH = "../raw_data/user_followers"
 MISSING_USER_PROFILES_PATH = "missing_user_profiles"
-TREES_PATH = "trees2"
 
 def _lookup_RT(text):
     match = re.search(r'RT\s@((\w){1,15}):', text)
@@ -261,7 +260,7 @@ def run(args):
     random.seed(31)
 
     logging.info("Creating trees")
-    os.makedirs(TREES_PATH, exist_ok=True)
+    os.makedirs(args.trees_path, exist_ok=True)
     os.makedirs(MISSING_USER_PROFILES_PATH, exist_ok=True)
     
 
@@ -275,7 +274,7 @@ def run(args):
                 if count % 25 == 0: 
                     logging.info("{}".format(count))
                 tree = postprocess_tree(tree)
-                tree_path = os.path.join(TREES_PATH, "trees-{}.json".format(count))
+                tree_path = os.path.join(args.trees_path, "trees-{}.json".format(count))
                 with open(tree_path, 'w') as tree_file:
                     json.dump(tree_to_dict(tree), tree_file)
                     #tree_file.write(tree_to_json(tree))
@@ -304,6 +303,14 @@ if __name__ == "__main__":
         dest="min_retweets",
         type=int,
         default=8
+    )
+
+    parser.add_argument(
+        "--trees-path",
+        help="The location where the generated trees will be stored.",
+        dest="trees_path",
+        type=str,
+        default="trees"
     )
 
     args = parser.parse_args()
