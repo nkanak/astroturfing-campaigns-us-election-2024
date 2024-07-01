@@ -36,6 +36,10 @@ def _find_retweet_source(retweet, previous_retweets):
     """Given a retweet and all previous retweers estimate from which 
     retweet it originated.
     """
+    # Check if there is only one retweet previously. If so, then assign to it.
+    if len(previous_retweets) == 1:
+        return previous_retweets[0]
+
     user = retweet.user
     rt_username = _lookup_RT(retweet.text)
 
@@ -60,6 +64,12 @@ def _find_retweet_source(retweet, previous_retweets):
 
     # Assign to most popular based on popularity
     weights = [rt.user.popularity for rt in previous_retweets]
+
+    # If all the tweets have zero popularity, then pick one at random.
+    if sum(weights) == 0:
+        return random.choice(previous_retweets)
+
+    # Else assign to most popular.
     return random.choices(previous_retweets, weights=weights, k=1)[0]
 
 
@@ -117,9 +127,12 @@ def load_user_from_disk(user_id):
 
     # load user followers from file
     with open("{}/{}.json".format(USER_FOLLOWERS_PATH, user_id)) as json_file:
-        followers_dict = json.load(json_file)
-        for follower_id in followers_dict.get("followers", []):
-            user.followers.add(str(follower_id))
+        try:
+            followers_dict = json.load(json_file)
+            for follower_id in followers_dict.get("followers", []):
+                user.followers.add(str(follower_id))
+        except json.JSONDecodeError:
+            logging.warning(f"There was an issue while trying to retrieve followers for {USER_FOLLOWERS_PATH}/{user_id}.json. Followers remains an empty set.")
 
     return user
 
@@ -257,9 +270,7 @@ def run(args):
         tweet_path = fentry.path
         with open(tweet_path) as json_file:
             tweet_dict = json.load(json_file)
-            # FIXME: min_retweets should be a hyperparameter.
-            tree = create_tree(tweet_dict, min_retweets=1)
-            #tree = create_tree(tweet_dict, min_retweets=8)
+            tree = create_tree(tweet_dict, min_retweets=args.min_retweets)
             if tree is not None:
                 if count % 25 == 0: 
                     logging.info("{}".format(count))
@@ -284,7 +295,15 @@ if __name__ == "__main__":
         help="Tweets directory",
         dest="tweets",
         type=str,
-        default="tweets1"
+        default="tweets"
+    )
+
+    parser.add_argument(
+        "--min-retweets",
+        help="Keep only the tweets that have a number of retweets greater or equal than this value",
+        dest="min_retweets",
+        type=int,
+        default=8
     )
 
     args = parser.parse_args()
