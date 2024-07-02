@@ -19,10 +19,9 @@ def run(args):
     users_embeddings_files = set(users_embeddings_files)
 
     train_trees_path = os.path.join(args.dataset_root, "train")
-    val_trees_path = os.path.join(args.dataset_root, "val")
     test_trees_path = os.path.join(args.dataset_root, "test")
 
-    for path, tree_filenames in [(train_trees_path, os.listdir(train_trees_path)), (val_trees_path, os.listdir(val_trees_path)), (test_trees_path, os.listdir(test_trees_path))]:
+    for path, tree_filenames in [(train_trees_path, os.listdir(train_trees_path)), (test_trees_path, os.listdir(test_trees_path))]:
         logging.info("Adding node embeddings to trees %s" % (path))
         for fname in tqdm(tree_filenames):
             with open(os.path.join(path, fname)) as f:
