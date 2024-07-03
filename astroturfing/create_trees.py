@@ -310,7 +310,7 @@ if __name__ == "__main__":
         help="The location where the generated trees will be stored.",
         dest="trees_path",
         type=str,
-        default="trees"
+        default="produced_data/trees"
     )
 
     args = parser.parse_args()

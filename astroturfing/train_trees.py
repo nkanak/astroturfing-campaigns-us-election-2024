@@ -10,11 +10,12 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import GATConv, global_mean_pool
 
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix
 import numpy as np
 
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+import shutil
 
 from tqdm import tqdm
 
@@ -201,6 +202,11 @@ if __name__ == "__main__":
         format="%(asctime)-15s %(name)-15s %(levelname)-8s %(message)s",
         level=logging.INFO,
     )
+    
+    tsne_output_dir = "tsne_trees"
+    if os.path.exists(tsne_output_dir) and os.path.isdir(tsne_output_dir):
+        shutil.rmtree(tsne_output_dir)
+    os.makedirs(tsne_output_dir)
 
     path = "produced_data/datasets/dataset"
     run(path)

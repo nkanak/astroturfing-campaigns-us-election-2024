@@ -84,13 +84,14 @@ def create_user_labels_df(user_ids, user_labels_dir):
         with open('%s/%s.json' % (user_labels_dir, user_id)) as json_file:
             user_label = json.load(json_file)
             indexes.append(int(user_label['id']))
+            # FIXME: this ratio should be a hyperparameter.
             if user_label['fake'] >= user_label['real']/4.0:
                 labels.append(1)
             else:
                 labels.append(0)
             count2 += 1
     df = pd.DataFrame(labels, index=indexes, columns=['label'])
-    print('We set zero label to missing %s users' % (count1))
+    print('We set zero label to %s missing users' % (count1))
     print('We set correct labels to %s users' % (count2))
     return df
 

@@ -13,7 +13,7 @@ import numpy as np
 import os
 import utils
 import json
-from torch_geometric.loader import NeighborLoader
+import shutil
 
 
 class GraphSAGENet(torch.nn.Module):
@@ -198,7 +198,8 @@ def run(args):
     cm = confusion_matrix(test_true_labels, test_predictions)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=target_encoding.classes_)
     disp.plot()
-    plt.show()
+    plt.savefig(f'tsne_social_graph/social_graph_confusion_matrix.png')
+    plt.close()
 
     embeddings_lookup = {}
     for data, labels in zip([train_data, test_data], [train_labels, test_labels]):
@@ -227,6 +228,11 @@ if __name__ == "__main__":
         type=int,
         default=5
     )
+
+    tsne_output_dir = "tsne_social_graph"
+    if os.path.exists(tsne_output_dir) and os.path.isdir(tsne_output_dir):
+        shutil.rmtree(tsne_output_dir)
+    os.makedirs(tsne_output_dir)
 
     args = parser.parse_args()
     run(args)
