@@ -1,7 +1,14 @@
-# Astroturfing project - FakeNews dataset
+# Detecting fake news campaigns for the 2024 United States presidential election
 
+### Summary
+* This repository contains code for detecting fake news and astroturfing campaigns using Twitter data. It is an improved version of the code written for the paper titled ["Detection of fake news campaigns using graph convolutional networks"](https://www.sciencedirect.com/science/article/pii/S2667096822000477).
+* The slide of the presentation **TODO** help in understanding the proposed pipeline.
 
-Unzip all data into folder `../raw_data`. It should contain the following directory 
+### Dataset
+The dataset can be generated using the [FakeNewNet repository](https://github.com/KaiDMML/FakeNewsNet). In a nutsell, the code requires information about the users, their followers and labels for the main tweets (e.g. fake news or real news). Labels for the retweets are not needed. Any other dataset that provides similar information can also be used.
+
+#### Dataset location
+Unzip all data into the `raw_data` folder. It should contain the following directory 
 structure. 
 
 ```
@@ -10,78 +17,19 @@ user_followers
 user_profiles
 ```
 
-# Compute user embeddings
 
-Download user embeddings in the root folder of the problem and unzip in `../raw_data`. 
+### Setup environment
+Developed and test in **Python3.9**
 
-```
-curl -LO https://nlp.stanford.edu/data/wordvecs/glove.twitter.27B.zip
-unzip glove.twitter.27B.zip
-```
-
-Compute using 
-
-```
-./compute_user_embeddings.py --input-dir=../raw_data --output-dir=../raw_data --embeddings-file=../raw_data/glove.twitter.27B.100d.txt
+```sh
+python3.9 -m virtualenv env
+source env/bin/activate
+pip install -r requirements.txt
 ```
 
-you should get a directory `../raw_data/user_embeddings` containing one json file per user. 
+### Run code
+Take a look at the **run.sh** file to understand how the entire process works. Reading the main part of the related paper and the slides of the presentation can also be of help.
 
-## Compute user labels 
-
-Compute using 
-
-```
-./compute_user_labels.py --input-dir=../raw_data --output-dir=../raw_data
-```
-
-you should get a directory `../raw_data/user_labels` containing one json file per user. 
-
-## Compute trees
-
-First you need to preprocess the dataset using 
-
-```
-./dataset_preprocess.py
-```
-
-This will create a folder `tweets1`. Then run 
-
-```
-./create_trees.py
-```
-
-which will create a folder `trees2`.
-
-
-## Train a Graph Neural Network
-
-* Download glove embeddings and extract the zip file. 
-  Available at https://nlp.stanford.edu/projects/glove/ (recommended file: "Twitter (2B tweets): glove.twitter.27B.zip")
-* Run `compute_user_label.py` script file
-* Run `user_to_graph.py` script file (e.g. `python users_to_graph.py --input-dir ../raw_data --embeddings-file ../raw_data/glove.twitter.27B/glove.twitter.27B.200d.txt`)
-* Run `train_graphsage.py` script file (e.g. `python train_graphsage.py --user-labels-dir ../raw_data/user_labels`)
-
-
-# How to run the whole process
-Step 1.
-Connect to the hua server (10.100.54.29) and execute the following commands:
-```
-cd astroturfing/fakenews
+```sh
 ./run.sh
-```
-
-Step 2. When the above script pauses its execution, run the following commands locally:
-```
-./download_graphsage_data.sh
-./run_graphsage.sh
-./upload_graphsage_produce_data.sh
-```
-
-Step 3. When the above scripts finish their execution, go to the hua server and continue the execution of the script.
-
-Step 4. When the script of the hua server finishes its execution, run the following commands locally:
-```
-./download_gat_data.sh
-./run_gat.sh
 ```
