@@ -4,26 +4,33 @@ import torch.nn.functional as F
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import SAGEConv
-from sklearn import preprocessing, model_selection
+from sklearn import preprocessing
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score, f1_score
 import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 import pandas as pd
 import numpy as np
 import os
 import utils
 import json
+from torch_geometric.loader import NeighborLoader
+
 
 class GraphSAGENet(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super(GraphSAGENet, self).__init__()
         self.conv1 = SAGEConv(in_channels, hidden_channels)
         self.conv2 = SAGEConv(hidden_channels, out_channels)
+        self.linear = torch.nn.Linear(out_channels, 1)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.conv2(x, edge_index)
-        return torch.sigmoid(x)
+        x = F.relu(x)
+        node_embeddings = x
+        x = self.linear(x)
+        return torch.sigmoid(x), node_embeddings
 
 def create_data(vertices_df, edges_df, labels, target_encoding):
     edge_index = torch.tensor(edges_df[['source', 'target']].values.T, dtype=torch.long)
@@ -38,8 +45,8 @@ def infer(model, data_loader, device='cpu'):
     with torch.no_grad():
         for data in data_loader:
             data = data.to(device)
-            out = model(data.x, data.edge_index)
-            embeddings.append(out.cpu().numpy())
+            _, node_embeddings = model(data.x, data.edge_index)
+            embeddings.append(node_embeddings.cpu().numpy())
     return np.vstack(embeddings)
 
 def reindex_edges(vertices_df, edges_df):
@@ -64,7 +71,6 @@ def reindex_edges(vertices_df, edges_df):
     node_mapping = {original_index: new_index for new_index, original_index in enumerate(vertices_df.index)}
     inverse_node_mapping = {new_index: original_index for new_index, original_index in enumerate(vertices_df.index)}
 
-
     # Apply the mapping to the edges dataframe
     edges_df['source'] = edges_df['source'].map(node_mapping)
     edges_df['target'] = edges_df['target'].map(node_mapping)
@@ -74,6 +80,29 @@ def reindex_edges(vertices_df, edges_df):
         raise ValueError("Some edges contain indices not found in the vertices dataframe")
 
     return vertices_df.reset_index(drop=True), edges_df, inverse_node_mapping
+
+def plot_tsne_node_embeddings(model, loader, device, epoch):
+    model.eval()
+    node_embeddings = []
+    labels = []
+    with torch.no_grad():
+        for data in loader:
+            data = data.to(device)
+            _, node_embeds = model(data.x, data.edge_index)
+            node_embeddings.append(node_embeds.cpu().numpy())
+            labels.append(data.y.cpu().numpy())
+
+    node_embeddings = np.concatenate(node_embeddings, axis=0)
+    labels = np.concatenate(labels, axis=0).flatten()  # Ensure labels are 1D
+    tsne = TSNE(n_components=2, perplexity=5, init="pca", learning_rate="auto", random_state=42)
+    embeddings_2d = tsne.fit_transform(node_embeddings)
+    plt.figure(figsize=(10, 10))
+    plt.scatter(embeddings_2d[labels == 0, 0], embeddings_2d[labels == 0, 1], label='Non-astroturfers', alpha=0.5)
+    plt.scatter(embeddings_2d[labels == 1, 0], embeddings_2d[labels == 1, 1], label='Astroturfers', alpha=0.5)
+    plt.legend()
+    plt.title(f't-SNE of Node Embeddings at Epoch {epoch}')
+    plt.savefig(f'tsne_social_graph/tsne_node_epoch_{epoch}.png')
+    plt.close()
 
 def run(args):
     user_labels_dir = 'produced_data/user_labels'
@@ -106,51 +135,61 @@ def run(args):
     test_loader = DataLoader([test_data], batch_size=1, shuffle=False)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = GraphSAGENet(train_data.num_features, 32, 1).to(device)
+    model = GraphSAGENet(train_data.num_features, 32, 16).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    
     def train():
         model.train()
+        total_loss = 0
         for data in train_loader:
             data = data.to(device)
             optimizer.zero_grad()
-            out = model(data.x, data.edge_index)
+            out, _ = model(data.x, data.edge_index)
             loss = F.binary_cross_entropy(out, data.y)
             loss.backward()
             optimizer.step()
+            total_loss += loss.item()
+        return total_loss / len(train_loader)
 
     def evaluate(loader):
         model.eval()
+        total_loss = 0
         predictions = []
         true_labels = []
         with torch.no_grad():
             for data in loader:
                 data = data.to(device)
-                out = model(data.x, data.edge_index)
+                out, _ = model(data.x, data.edge_index)
+                loss = F.binary_cross_entropy(out, data.y)
+                total_loss += loss.item()
                 pred = (out > 0.5).cpu().numpy()
                 true = data.y.cpu().numpy()
                 predictions.append(pred)
                 true_labels.append(true)
         predictions = np.concatenate(predictions)
         true_labels = np.concatenate(true_labels)
-        return predictions, true_labels
+        return total_loss / len(loader), predictions, true_labels
 
     for epoch in range(args.epochs):
-        train()
-        train_predictions, train_true_labels = evaluate(train_loader)
-        val_predictions, val_true_labels = evaluate(test_loader)
+        train_loss = train()
+        val_loss, train_predictions, train_true_labels = evaluate(train_loader)
+        _, val_predictions, val_true_labels = evaluate(test_loader)
         
         train_acc = accuracy_score(train_true_labels, train_predictions)
         val_acc = accuracy_score(val_true_labels, val_predictions)
-        
-        print(f'Epoch: {epoch + 1}, Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}')
 
-    test_predictions, test_true_labels = evaluate(test_loader)
+        print(f'Epoch: {epoch + 1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}')
+        if epoch == 0 or epoch % 15 == 0 or epoch == args.epochs -1:
+            plot_tsne_node_embeddings(model, train_loader, device, epoch)  # Plot t-SNE of node embeddings after each epoch
+
+    test_loss, test_predictions, test_true_labels = evaluate(test_loader)
     
     test_acc = accuracy_score(test_true_labels, test_predictions)
     test_precision = precision_score(test_true_labels, test_predictions)
     test_recall = recall_score(test_true_labels, test_predictions)
     test_f1 = f1_score(test_true_labels, test_predictions)
     
+    print(f'Test Loss: {test_loss:.4f}')
     print(f'Test Acc: {test_acc:.4f}')
     print(f'Test Precision: {test_precision:.4f}')
     print(f'Test Recall: {test_recall:.4f}')
