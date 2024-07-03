@@ -7,7 +7,7 @@ rm -r tsne_social_graph
 rm -r tsne_trees
 
 echo "##### RUN dataset_preprocess #####"
-python dataset_preprocess.py --sample-probability 0.01
+python dataset_preprocess.py
 echo "##### RUN create_trees #####"
 python create_trees.py
 echo "##### RUN split_dataset #####"
