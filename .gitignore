@@ -10,5 +10,11 @@ hold_out_vertices_df.pkl
 users_embedding_*/
 missing_user_profiles/
 __pycache__
+tweets/
 tweets1/
 trees2/
+tsne_social_graph/
+tsne_trees/
+test_labels.pkl
+train_labels.pkl
+users_embedding_model.pth
