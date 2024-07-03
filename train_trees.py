@@ -183,7 +183,7 @@ def run(root_path):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
 
     # Start training
-    NUM_OF_EPOCHS = 20
+    NUM_OF_EPOCHS = 150
     for epoch in range(0, NUM_OF_EPOCHS):
         logging.info("Starting epoch {}".format(epoch))
         loss = train(model, train_loader, device, optimizer, loss_op)
