@@ -19,7 +19,7 @@ user_profiles
 
 
 ### Setup environment
-Developed and test in **Python3.9**
+Developed and tested in **Python3.9**
 
 ```sh
 python3.9 -m virtualenv env
