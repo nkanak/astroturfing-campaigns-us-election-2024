@@ -20,8 +20,8 @@ import models
 import json
 from datetime import datetime 
 
-USER_PROFILES_PATH = "../raw_data/user_profiles"
-USER_FOLLOWERS_PATH = "../raw_data/user_followers"
+USER_PROFILES_PATH = "raw_data/user_profiles"
+USER_FOLLOWERS_PATH = "raw_data/user_followers"
 MISSING_USER_PROFILES_PATH = "missing_user_profiles"
 
 def _lookup_RT(text):

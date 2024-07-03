@@ -21,8 +21,8 @@ def run(args):
 
     logging.info("Loading dataset")
 
-    real_news_retweets_path = "../raw_data/{}/real".format(args.website)
-    fake_news_retweets_path = "../raw_data/{}/fake".format(args.website)
+    real_news_retweets_path = "raw_data/{}/real".format(args.website)
+    fake_news_retweets_path = "raw_data/{}/fake".format(args.website)
     
     output_path = "tweets"
     os.makedirs(output_path, exist_ok=True)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--sample-probability",
-        help="Sample probability. A sample probablity of 0 means include all the tweets.",
+        help="Sample probability. A sample probablity of 1 means include all the tweets.",
         dest="sample_probability",
         type=float,
         default=None,
