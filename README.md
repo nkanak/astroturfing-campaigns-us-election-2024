@@ -25,6 +25,10 @@ Developed and tested in **Python3.9**
 python3.9 -m virtualenv env
 source env/bin/activate
 pip install -r requirements.txt
+
+cd raw_data
+curl -LO https://nlp.stanford.edu/data/wordvecs/glove.twitter.27B.zip
+unzip glove.twitter.27B.zip
 ```
 
 ### Run code
