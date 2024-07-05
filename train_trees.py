@@ -125,11 +125,11 @@ def plot_tsne(model, loader, device, epoch):
 
     embeddings = np.concatenate(embeddings, axis=0)
     labels = np.concatenate(labels, axis=0)
-    tsne = TSNE(n_components=2, perplexity=2, learning_rate="auto", init="pca", random_state=42)
+    tsne = TSNE(n_components=2, perplexity=10, learning_rate="auto", init="pca", random_state=42)
     embeddings_2d = tsne.fit_transform(embeddings)
     plt.figure(figsize=(10, 10))
-    plt.scatter(embeddings_2d[labels == 0, 0], embeddings_2d[labels == 0, 1], label='Real', alpha=0.5)
-    plt.scatter(embeddings_2d[labels == 1, 0], embeddings_2d[labels == 1, 1], label='Fake', alpha=0.5)
+    plt.scatter(embeddings_2d[labels == 0, 0], embeddings_2d[labels == 0, 1], label='Real')
+    plt.scatter(embeddings_2d[labels == 1, 0], embeddings_2d[labels == 1, 1], label='Fake')
     plt.legend()
     plt.title(f't-SNE of ReLU Outputs at Epoch {epoch}')
     plt.savefig(f'tsne_trees/tsne_epoch_{epoch}.png')
@@ -183,7 +183,7 @@ def run(root_path):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
 
     # Start training
-    NUM_OF_EPOCHS = 150
+    NUM_OF_EPOCHS = 300
     for epoch in range(0, NUM_OF_EPOCHS):
         logging.info("Starting epoch {}".format(epoch))
         loss = train(model, train_loader, device, optimizer, loss_op)
