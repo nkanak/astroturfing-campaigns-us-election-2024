@@ -94,11 +94,11 @@ def plot_tsne_node_embeddings(model, loader, device, epoch):
 
     node_embeddings = np.concatenate(node_embeddings, axis=0)
     labels = np.concatenate(labels, axis=0).flatten()  # Ensure labels are 1D
-    tsne = TSNE(n_components=2, perplexity=5, init="pca", learning_rate="auto", random_state=42)
+    tsne = TSNE(n_components=2, perplexity=10, init="pca", learning_rate="auto", random_state=42)
     embeddings_2d = tsne.fit_transform(node_embeddings)
     plt.figure(figsize=(10, 10))
-    plt.scatter(embeddings_2d[labels == 0, 0], embeddings_2d[labels == 0, 1], label='Non-astroturfers', alpha=0.5)
-    plt.scatter(embeddings_2d[labels == 1, 0], embeddings_2d[labels == 1, 1], label='Astroturfers', alpha=0.5)
+    plt.scatter(embeddings_2d[labels == 0, 0], embeddings_2d[labels == 0, 1], label='Non-astroturfers')
+    plt.scatter(embeddings_2d[labels == 1, 0], embeddings_2d[labels == 1, 1], label='Astroturfers')
     plt.legend()
     plt.title(f't-SNE of Node Embeddings at Epoch {epoch}')
     plt.savefig(f'tsne_social_graph/tsne_node_epoch_{epoch}.png')
