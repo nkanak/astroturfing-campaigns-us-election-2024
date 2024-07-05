@@ -18,3 +18,4 @@ tsne_trees/
 test_labels.pkl
 train_labels.pkl
 users_embedding_model.pth
+presentation/
