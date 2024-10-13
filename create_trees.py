@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-#
-# Preprocess the FakeNews dataset. Create a folder which contains one file 
-# per tweet. Inside each tweet we have its list of retweets.
-#
 
 import argparse
 import os
@@ -177,6 +173,8 @@ def create_tree(tweet_dict, min_retweets):
     tree.add_node(tweet)
 
     tree.nodes[tweet]["delay"] = 0
+    tree.nodes[tweet]["text"] = tweet.text
+    tree.nodes[tweet]["associated_user_profile_description"] = tweet.user.description
 
     previous = []
     previous.append(tweet)
@@ -189,6 +187,9 @@ def create_tree(tweet_dict, min_retweets):
         tree.add_edge(cur, cur_retweet_of)
 
         tree.nodes[cur]['delay'] = abs((cur.created_at-cur_retweet_of.created_at).total_seconds())
+        tree.nodes[cur]['text'] = cur.text
+        tree.nodes[cur]["associated_user_profile_description"] = cur.user.description
+
 
         previous.append(cur)
 
@@ -205,15 +206,19 @@ def postprocess_tree(tree):
     """
     p_tree = nx.DiGraph()
 
-    vid = 0
-    tweet_to_id = {}
+    #vid = 0
+    #tweet_to_id = {}
     for tweet in tree.nodes(data=True):
+        vid = tweet[0].id
         p_tree.add_node(vid)
 
         p_tree.nodes[vid]['user_id'] = tweet[0].user.id
         p_tree.nodes[vid]['delay'] = tree.nodes[tweet[0]]['delay']
         p_tree.nodes[vid]['followers_count'] = max(len(tweet[0].user.followers), tweet[0].user.followers_count)
         p_tree.nodes[vid]['following_count'] =  max(len(tweet[0].user.following), tweet[0].user.following_count)
+        p_tree.nodes[vid]["tweet_text"] = tree.nodes[tweet[0]]['text']
+        p_tree.nodes[vid]["associated_user_profile_description"] = tree.nodes[tweet[0]]["associated_user_profile_description"]
+        
 
         for key in ['verified', 'protected', 'favourites_count', 'listed_count', 'statuses_count']:
             p_tree.nodes[vid][key] = int(getattr(tweet[0].user, key))
@@ -221,11 +226,11 @@ def postprocess_tree(tree):
         #if tweet.user.embedding is not None:
         #    p_tree.vertex_attrs[vid]['user_profile_embedding'] = tweet.user.embedding
 
-        tweet_to_id[tweet[0]] = vid
-        vid += 1
+        #tweet_to_id[tweet[0]] = vid
+        #vid += 1
 
     for source, target in tree.edges:
-        p_tree.add_edge(tweet_to_id[source], tweet_to_id[target])
+        p_tree.add_edge(source.id, target.id)
 
     p_tree.graph['label'] = tree.graph['label']
 
@@ -244,6 +249,7 @@ def tree_to_dict(tree):
             node[k] = v
         nodes.append(node)
     edges = []
+
     for source, target in tree.edges:
         edge = {}
         edge['source'] = source
@@ -274,9 +280,9 @@ def run(args):
                 if count % 25 == 0: 
                     logging.info("{}".format(count))
                 tree = postprocess_tree(tree)
-                tree_path = os.path.join(args.trees_path, "trees-{}.json".format(count))
+                tree_path = os.path.join(args.trees_path, "trees-{}-{}.json".format(count, tweet_dict["id_str"]))
                 with open(tree_path, 'w') as tree_file:
-                    json.dump(tree_to_dict(tree), tree_file)
+                    json.dump(tree_to_dict(tree), tree_file, indent=2)
                     #tree_file.write(tree_to_json(tree))
                 count += 1        
 

@@ -19,7 +19,7 @@ echo "##### RUN users_to_graph #####"
 python users_to_graph.py --input-dir raw_data --embeddings-file raw_data/glove.twitter.27B.100d.txt --dataset-root produced_data/datasets/dataset
 
 echo "##### RUN train_social_graph #####"
-python train_social_graph.py --dataset-root produced_data/datasets/dataset --epochs 200
+python train_social_graph.py --dataset-root produced_data/datasets/dataset --epochs 2
 
 echo "##### RUN compute_user_embeddings #####"
 python compute_user_embeddings.py --input-dir raw_data --dataset-root produced_data/datasets/dataset --embeddings-file raw_data/glove.twitter.27B.100d.txt
